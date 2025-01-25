@@ -2,14 +2,17 @@ const axios = require("axios");
 const crypto = require("crypto");
 
 exports.initiatePayment = (req, res) => {
-  const { amount, orderid, name, email, mobile } = req.body;
+  const { amount, orderid, name, email, mobile,verifyKey } = req.body;
 
   if (!amount || !orderid || !name || !email || !mobile) {
     return res.status(400).json({ error: "All fields are required!" });
   }
 
-  const vcode = generateSignature(amount, orderid);
+  const vcode = generateSignature(amount, orderid,verifyKey);
 
+  console.log("vcode", vcode);
+
+  
   const paymentData = {
     merchant_id: process.env.MERCHANT_ID,
     amount,
@@ -24,6 +27,7 @@ exports.initiatePayment = (req, res) => {
     callbackurl: process.env.CALLBACK_URL,
     cancelurl: process.env.CANCEL_URL,
     langcode: "en",
+    verifyKey,
   };
 
   console.log("paymentData", paymentData);
@@ -31,9 +35,9 @@ exports.initiatePayment = (req, res) => {
   res.status(200).json(paymentData);
 };
 
-function generateSignature(amount, orderID) {
+function generateSignature(amount, orderID,verifyKey) {
   const merchantID = process.env.MERCHANT_ID;
-  const verifyKey = "6d001ebd1fdabb9c8e986dee8f01ec54";
+  
 
   const dataToHash = amount + merchantID + orderID + verifyKey;
 
@@ -87,6 +91,7 @@ exports.handleNotification = async (req, res) => {
     appcode,
     paydate,
     skey,
+
   } = req.body;
 
   // Simulating the incoming POST request body
@@ -103,7 +108,7 @@ exports.handleNotification = async (req, res) => {
     skey,
   };
 
-  console.log("requestBody", requestBody);
+  console.log("requestBody", requestBody);  
 
   // Prepare POST data
   const postData = new URLSearchParams(requestBody).toString();

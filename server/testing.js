@@ -41,7 +41,7 @@ const key1PlainText =
   requestBody.appcode +
   secretKey;
 
-console.log("key1 Plain Text:", key1PlainText);
+console.log("key1 Plain Text:", key1PlainText);    
 
 const key1 = crypto
   .createHash("md5")
