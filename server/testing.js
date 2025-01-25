@@ -28,7 +28,7 @@ const requestBody= {
 console.log("key0 Plain Text:", key0PlainText);
 
 const key0 = crypto
-  .createHash("md5")
+  .createHash("md5")    
   .update(key0PlainText)
   .digest("hex");
   

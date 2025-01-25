@@ -8,7 +8,7 @@ exports.initiatePayment = (req, res) => {
     return res.status(400).json({ error: "All fields are required!" });
   }
 
-  const vcode = generateSignature(amount, orderid,verifyKey);
+  const vcode = generateSignature(amount, orderid);
 
   console.log("vcode", vcode);
 
@@ -27,7 +27,7 @@ exports.initiatePayment = (req, res) => {
     callbackurl: process.env.CALLBACK_URL,
     cancelurl: process.env.CANCEL_URL,
     langcode: "en",
-    verifyKey,
+    
   };
 
   console.log("paymentData", paymentData);
@@ -35,9 +35,9 @@ exports.initiatePayment = (req, res) => {
   res.status(200).json(paymentData);
 };
 
-function generateSignature(amount, orderID,verifyKey) {
+function generateSignature(amount, orderID) {
   const merchantID = process.env.MERCHANT_ID;
-  
+  const verifyKey = "6d001ebd1fdabb9c8e986dee8f01ec54";
 
   const dataToHash = amount + merchantID + orderID + verifyKey;
 
