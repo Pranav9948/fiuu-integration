@@ -13,37 +13,41 @@ const requestBody= {
     skey: '6d91926766c81ae94c94c0160bb0df51'
   }
 
-  const secretKey = process.env.SECRET_KEY;
+  const {tranID,treq,orderid,status,domain,amount,currency,appcode,paydate,skey,}=requestBody
 
+  const secretKey = '0e2c7e1feb59c4fd616d9d5cd9ebdbba'
 
-  console.log('secretKey', secretKey);
+  const key0PlainText = 
+  requestBody.tranID +
+  requestBody.orderid +
+  requestBody.status +
+  requestBody.domain +
+  requestBody.amount +
+  requestBody.currency;
 
-    const key0 = crypto
-        .createHash("md5")
-        .update(
-          requestBody.tranID +
-            requestBody.orderid +
-            requestBody.status +
-            requestBody.domain +
-            requestBody.amount +
-            requestBody.currency
-        )
-        .digest("hex");
+console.log("key0 Plain Text:", key0PlainText);
 
-        console.log("key0", key0);
+const key0 = crypto
+  .createHash("md5")
+  .update(key0PlainText)
+  .digest("hex");
+  
+console.log("key0 Hash:", key0);
 
+const key1PlainText = 
+  requestBody.paydate +
+  requestBody.domain +
+  key0 +
+  requestBody.appcode +
+  secretKey;
 
-         const key1 = crypto
-              .createHash("md5")
-              .update(
-                requestBody.paydate +
-                  requestBody.domain +
-                  key0 +
-                  requestBody.appcode +
-                  secretKey
-              )
-              .digest("hex");
+console.log("key1 Plain Text:", key1PlainText);
 
+const key1 = crypto
+  .createHash("md5")
+  .update(key1PlainText)
+  .digest("hex");
 
-              console.log("key1", key1);
-              console.log('skey',requestBody.skey)
+console.log("key1 Hash:", key1);
+console.log("skey Received:", skey);
+  

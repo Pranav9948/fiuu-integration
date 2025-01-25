@@ -42,45 +42,38 @@ function generateSignature(amount, orderID) {
   return hash;
 }
 
-exports.handleCallback = (req, res) => {
-  console.log("reachedd");
-  const { status, orderid } = req.body;
-  console.log("req.boddd", req.body);
 
-  res.redirect(
-    `https://b90d-2403-a080-1c-e027-7883-33f7-68b7-2325.ngrok-free.app/payment-success?status=${status}&orderid=${orderid}`
-  );
-};
+// exports.handleIPN = async (req, res) => {
+//   console.log("calling handle IPN");
+//   try {
+//     const postData = { ...req.body, treq: 1 };
+//     const formData = new URLSearchParams(postData).toString();
 
-exports.handleIPN = async (req, res) => {
-  console.log("calling handle IPN");
-  try {
-    const postData = { ...req.body, treq: 1 };
-    const formData = new URLSearchParams(postData).toString();
+//     console.log("formData", formData);
 
-    console.log("formData", formData);
+//     const ipnResponse = await axios.post(
+//       "https://pay.fiuu.com/RMS/API/chkstat/returnipn.php",
+//       formData,
+//       {
+//         headers: {
+//           "Content-Type": "application/x-www-form-urlencoded",
+//         },
+//       }
+//     );
 
-    const ipnResponse = await axios.post(
-      "https://pay.fiuu.com/RMS/API/chkstat/returnipn.php",
-      formData,
-      {
-        headers: {
-          "Content-Type": "application/x-www-form-urlencoded",
-        },
-      }
-    );
+//     console.log("IPN Responsse:", ipnResponse);
 
-    console.log("IPN Responsse:", ipnResponse);
-
-    res.status(200).send("IPN Acknowledged");
-  } catch (error) {
-    console.error("error in handleIPN", error);
-    console.error("IPN Error:", error.message);
-    res.status(500).send("IPN Failed");
-  }
-};
+//     res.status(200).send("IPN Acknowledged");
+//   } catch (error) {
+//     console.error("error in handleIPN", error);
+//     console.error("IPN Error:", error.message);
+//     res.status(500).send("IPN Failed");
+//   }
+// };
 
 // Notification & Callback Handler
+
+
 exports.handleNotification = async (req, res) => {
   console.log("Notification Received:", req.body);
 
@@ -98,7 +91,7 @@ exports.handleNotification = async (req, res) => {
 
   // Simulating the incoming POST request body
   const requestBody = {
-    treq: 1,
+    treq: 1,    
     tranID,
     orderid,
     status,
@@ -137,7 +130,7 @@ exports.handleNotification = async (req, res) => {
   if (response === 200) {
     const secretKey = process.env.SECRET_KEY;
 
-    console.log("secretKey", secretKey);
+    console.log("secretKeynew", secretKey);
     const key0 = crypto
       .createHash("md5")
       .update(
@@ -183,3 +176,56 @@ exports.handleNotification = async (req, res) => {
     return res.status(500).send("Server Error: Unable to verify transaction");
   }
 };
+
+
+exports.handleCallback = async (req, res) => {
+  console.log("Callback Received:", req.body);
+
+  const {
+    tranID,
+    orderid,
+    status,
+    domain,
+    amount,
+    currency,
+    appcode,
+    paydate,
+    skey,
+    nbcb,
+  } = req.body;
+
+  const secretKey = process.env.SECRET_KEY;
+
+  // Validate the integrity of the data
+  const key0 = crypto
+    .createHash("md5")
+    .update(
+      tranID + orderid + status + domain + amount + currency
+    )
+    .digest("hex");
+
+  const key1 = crypto
+    .createHash("md5")
+    .update(paydate + domain + key0 + appcode + secretKey)
+    .digest("hex");
+
+  if (skey !== key1) {
+    console.error("Invalid transaction: Data integrity check failed");
+    return res.status(400).send("Invalid Transaction");
+  }
+
+  if (status === "00") {
+    console.log(`Callback Payment Success for Order ID: ${orderid}`);
+    // Save success to DB or perform necessary actions here
+    if (nbcb === "1") {
+      console.log("Acknowledging callback IPN");
+      return res.send("CBTOKEN:MPSTATOK"); // ACK response to gateway
+    }
+    return res.status(200).send("Callback Payment Successful");
+  } else {
+    console.error(`Callback Payment Failed for Order ID: ${orderid}`);
+    return res.status(400).send("Callback Payment Failed");
+  }
+};
+
+
