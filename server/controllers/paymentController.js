@@ -1,4 +1,5 @@
 const axios = require("axios");
+const crypto = require("crypto");
 
 exports.initiatePayment = (req, res) => {
   const { amount, orderid, name, email, mobile } = req.body;
@@ -31,8 +32,6 @@ exports.initiatePayment = (req, res) => {
 };
 
 function generateSignature(amount, orderID) {
-  const crypto = require("crypto");
-
   const merchantID = process.env.MERCHANT_ID;
   const verifyKey = "6d001ebd1fdabb9c8e986dee8f01ec54";
 
@@ -43,27 +42,24 @@ function generateSignature(amount, orderID) {
   return hash;
 }
 
-
 exports.handleCallback = (req, res) => {
   console.log("reachedd");
   const { status, orderid } = req.body;
   console.log("req.boddd", req.body);
- 
+
   res.redirect(
-    `http://localhost:5173/payment-success?status=${status}&orderid=${orderid}`
+    `https://b90d-2403-a080-1c-e027-7883-33f7-68b7-2325.ngrok-free.app/payment-success?status=${status}&orderid=${orderid}`
   );
 };
 
 exports.handleIPN = async (req, res) => {
   console.log("calling handle IPN");
   try {
-   
-    const postData = { ...req.body, treq: 1 }; 
+    const postData = { ...req.body, treq: 1 };
     const formData = new URLSearchParams(postData).toString();
 
     console.log("formData", formData);
 
-   
     const ipnResponse = await axios.post(
       "https://pay.fiuu.com/RMS/API/chkstat/returnipn.php",
       formData,
@@ -74,10 +70,8 @@ exports.handleIPN = async (req, res) => {
       }
     );
 
-  
     console.log("IPN Responsse:", ipnResponse);
 
-  
     res.status(200).send("IPN Acknowledged");
   } catch (error) {
     console.error("error in handleIPN", error);
@@ -87,7 +81,7 @@ exports.handleIPN = async (req, res) => {
 };
 
 // Notification & Callback Handler
-exports.handleNotification = (req, res) => {
+exports.handleNotification = async (req, res) => {
   console.log("Notification Received:", req.body);
 
   const {
@@ -102,31 +96,90 @@ exports.handleNotification = (req, res) => {
     skey,
   } = req.body;
 
+  // Simulating the incoming POST request body
+  const requestBody = {
+    treq: 1,
+    tranID,
+    orderid,
+    status,
+    domain,
+    amount,
+    currency,
+    appcode,
+    paydate,
+    skey,
+  };
 
-  console.log("Payment Notification Received:", req.body);
+  console.log("requestBody", requestBody);
 
-  const secretKey = process.env.SECRET_KEY; 
-  const key0 = crypto
-    .createHash("md5")
-    .update(`${tranID}${orderid}${status}${domain}${amount}${currency}`)
-    .digest("hex");
-  const key1 = crypto
-    .createHash("md5")
-    .update(`${paydate}${domain}${key0}${appcode}${secretKey}`)
-    .digest("hex");
+  // Prepare POST data
+  const postData = new URLSearchParams(requestBody).toString();
 
-  if (skey !== key1) {
-    console.error("Invalid transaction: Data integrity check failed");
-    return res.status(400).send("Invalid Transaction");
+  const url = "https://pay.fiuu.com/RMS/API/chkstat/returnipn.php";
+
+  // Function to send data to the API
+  async function sendDataToAPI() {
+    try {
+      const response = await axios.post(url, postData, {
+        headers: {
+          "Content-Type": "application/x-www-form-urlencoded",
+        },
+      });
+
+      return response.status;
+    } catch (error) {
+      console.error("Error sending data to API:", error.message);
+    }
   }
 
+  const response = await sendDataToAPI();
 
-  if (status === "00") {
-    console.log(`Payment Success for Order ID: ${orderid}`);
+  if (response === 200) {
+    const secretKey = process.env.SECRET_KEY;
 
-    return res.status(200).send("Payment Successful");
+    console.log("secretKey", secretKey);
+    const key0 = crypto
+      .createHash("md5")
+      .update(
+        requestBody.tranID +
+          requestBody.orderid +
+          requestBody.status +
+          requestBody.domain +
+          requestBody.amount +
+          requestBody.currency
+      )
+      .digest("hex");
+
+    const key1 = crypto
+      .createHash("md5")
+      .update(
+        requestBody.paydate +
+          requestBody.domain +
+          key0 +
+          requestBody.appcode +
+          secretKey
+      )
+      .digest("hex");
+
+    console.log("key1", key1);
+    console.log("skey", skey);
+    console.log("key0", key0);
+
+    if (skey !== key1) {
+      console.error("Invalid transaction: Data integrity check failed");
+      return res.status(400).send("Invalid Transaction");
+    }
+
+    if (status === "00") {
+      console.log(`Payment Success for Order ID: ${orderid}`);
+
+      return res.status(200).send("Payment Successful");
+    } else {
+      console.error(`Payment Failed for Order ID: ${orderid}`);
+      return res.status(400).send("Payment Failed");
+    }
   } else {
-    console.error(`Payment Failed for Order ID: ${orderid}`);
-    return res.status(400).send("Payment Failed");
+    console.error("Failed to reach the payment verification server");
+    return res.status(500).send("Server Error: Unable to verify transaction");
   }
 };
